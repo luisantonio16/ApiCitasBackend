@@ -11,7 +11,9 @@ import EspecialidadRoutes from "./Routes/EspecialidadRoutes.js";
 import DoctorRoutes from "./Routes/DoctorRoutes.js";
 import HorariosRoutes from "./Routes/HorariosRoutes.js";
 import CitasRoutes from "./Routes/CitasRoutes.js";
-import PacientesRoutes from "./Routes/PacientesRoutes.js"
+import PacientesRoutes from "./Routes/PacientesRoutes.js";
+import RolesRotes from "./Routes/RolesRoutes.js";
+import MenuOpcionesRoutes from "./Routes/MenuOpcionesRoutes.js"
 
 
 const app = express();
@@ -26,6 +28,8 @@ app.use("/api/doctor", DoctorRoutes);
 app.use("/api/horarios", HorariosRoutes);
 app.use("/api/citas", CitasRoutes);
 app.use("/api/pacientes", PacientesRoutes);
+app.use("/api/roles", RolesRotes);
+app.use("/api/menu-opciones", MenuOpcionesRoutes);
 
 const PORT = process.env.PORT || 4000;
 

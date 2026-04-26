@@ -1,11 +1,18 @@
 import { DataTypes } from "sequelize";
 import sequelize from "../Config/database.js";
+import bcrypt from "bcryptjs";
 
 const Usuario = sequelize.define("Usuarios", {
   id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
     autoIncrement: true,
+  },
+  personaId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    onUpdate: "CASCADE",
+    onDelete: "SET NULL",
   },
   rolId: {
     type: DataTypes.INTEGER,
@@ -14,27 +21,22 @@ const Usuario = sequelize.define("Usuarios", {
   estado: {
     type: DataTypes.BOOLEAN,
     defaultValue: true,
+  }, 
+  resetear: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
   },
   ultimo_login: {
     type: DataTypes.DATE,
     allowNull: true,
   },
-  email: {
-    type: DataTypes.STRING(120),
-    allowNull: false,
-    unique: true,
+  usuario: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
     validate: {
-      isEmail: { msg: "Debe ser un email válido" },
-      notEmpty: { msg: "El email es obligatorio" },
+      notEmpty: { msg: "El usuario es obligatorio" },
     },
   },
-   usuario: {
-        type: DataTypes.STRING(100),
-        allowNull: true,
-        validate: {
-            notEmpty: { msg: "El usuario es obligatorio" },
-        },
-    },
   password: {
     type: DataTypes.STRING,
     allowNull: false,
@@ -46,10 +48,12 @@ const Usuario = sequelize.define("Usuarios", {
       },
     },
   },
-  foto_url: {
-    type: DataTypes.TEXT, // aquí guardas la URL o ruta de la foto
-    allowNull: true,
-  },
 });
+
+
+Usuario.prototype.validarPassword = async function (passwordEnviado) {
+  return await bcrypt.compare(passwordEnviado, this.password);
+};
+
 
 export default Usuario;

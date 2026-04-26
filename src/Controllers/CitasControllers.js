@@ -2,32 +2,83 @@ import { Horario, Cita, Doctor, Sucursal, Usuario, Pacientes } from "../Models/i
 import { Op } from "sequelize";
 
 
-// Crear cita (con validación de duplicados)
+//Creamos la citas
 export const crearCita = async (req, res) => {
   try {
-    const { fecha, horaInicio, horaFin, motivo, doctorId, sucursalId, pacienteId } = req.body;
+    const {
+      fecha,
+      horaInicio,
+      horaFin,
+      motivo,
+      doctorId,
+      sucursalId,
+      pacienteId,
+      horarioDescripcion
+    } = req.body;
 
-    // Validar si ya existe cita en ese horario para el doctor
-    const existe = await Cita.findOne({
-      where: { fecha, horaInicio, doctorId, sucursalId }
-    });
-
-    if (existe) {
+    //  Validar fechas
+    if (!horaInicio || !horaFin) {
       return res.status(400).json({
-        error: "Ya existe una cita asignada para este doctor en esa fecha y hora"
+        error: "Debe enviar fechaHoraInicio y fechaHoraFin"
       });
     }
 
-    const cita = await Cita.create({
-      fecha, motivo, doctorId, sucursalId, horaInicio, horaFin, pacienteId
+    if (new Date(horaInicio) >= new Date(horaFin)) {
+      return res.status(400).json({
+        error: "La hora de inicio debe ser menor que la hora de fin"
+      });
+    }
+
+    //Validar solapamiento (LO IMPORTANTE)
+    const existeConflicto = await Cita.findOne({
+      where: {
+        doctorId,
+        sucursalId,
+
+        horaInicio: {
+          [Op.lt]: horaFin,
+        },
+        horaFin: {
+          [Op.gt]: horaInicio,
+        },
+
+        estado: {
+          [Op.notIn]: ["Cancelada", "Rechazada"],
+        },
+      },
     });
 
-    res.status(201).json(cita);
+    if (existeConflicto) {
+      return res.status(400).json({
+        error: "El doctor ya tiene una cita en ese horario"
+      });
+    }
+
+    //  Crear cita
+    const cita = await Cita.create({
+      horaInicio,
+      horaFin,
+      motivo,
+      doctorId,
+      sucursalId,
+      pacienteId,
+      horarioDescripcion,
+      fecha
+    });
+
+    res.status(201).json({
+      status:200,
+       message: "Cita creada con éxito",
+       cita
+    });
+
   } catch (error) {
-    res.status(500).json({ error: "Error al crear cita", details: error.message });
+    res.status(500).json({
+      error: "Error al crear cita",
+      details: error.message
+    });
   }
 };
-
 
 //obtenemos citas, por doctor, pacientes, sucursal, estado
 export const getCitas = async (req, res) => {
@@ -123,17 +174,78 @@ export const getCitaById = async (req, res) => {
 };
 
 // Modificar cita
-export const updateCita = async (req, res) => {
+export const actualizarCita = async (req, res) => {
   try {
     const { id } = req.params;
-    const [updated] = await Cita.update(req.body, { where: { id } });
 
-    if (updated === 0) return res.status(404).json({ error: "Cita no encontrada" });
+    const {
+      fecha,
+      horaInicio,
+      horaFin,
+      motivo,
+      doctorId,
+      sucursalId,
+      pacienteId,
+      estado,
+      horarioDescripcion
+    } = req.body;
 
-    const citaActualizada = await Cita.findByPk(id);
-    res.json(citaActualizada);
+    const cita = await Cita.findByPk(id);
+
+    if (!cita) {
+      return res.status(404).json({ error: "Cita no encontrada" });
+    }
+
+    // 🧠 Validar fechas
+    if (horaInicio && horaFin) {
+      if (new Date(horaInicio) >= new Date(horaFin)) {
+        return res.status(400).json({
+          error: "La hora de inicio debe ser menor que la de fin"
+        });
+      }
+
+      // 🔥 Validar solapamiento (excluyendo la misma cita)
+      const conflicto = await Cita.findOne({
+        where: {
+          id: { [Op.ne]: id },
+          doctorId: doctorId || cita.doctorId,
+          sucursalId: sucursalId || cita.sucursalId,
+
+          horaInicio: { [Op.lt]: horaFin },
+          horaFin: { [Op.gt]: horaInicio },
+
+          estado: {
+            [Op.notIn]: ["Cancelada", "Rechazada"]
+          }
+        }
+      });
+
+      if (conflicto) {
+        return res.status(400).json({
+          error: "Ya existe otra cita en ese horario"
+        });
+      }
+    }
+
+    await cita.update({
+      horaInicio,
+      horaFin,
+      motivo,
+      doctorId,
+      sucursalId,
+      pacienteId,
+      estado,
+      fecha,
+      horarioDescripcion
+    });
+
+    res.json(cita);
+
   } catch (error) {
-    res.status(500).json({ error: "Error al actualizar cita", details: error.message });
+    res.status(500).json({
+      error: "Error al actualizar cita",
+      details: error.message
+    });
   }
 };
 
@@ -199,17 +311,6 @@ export const getCitasPorDoctor = async (req, res) => {
   }
 };
 
-// Obtener citas por usuario
-export const getCitasPorUsuario = async (req, res) => {
-  try {
-    const { usuarioId } = req.params;
-    const citas = await Cita.findAll({ where: { usuarioId } });
-    res.json(citas);
-  } catch (error) {
-    res.status(500).json({ error: "Error al obtener citas del usuario", details: error.message });
-  }
-};
-
 // Obtener citas por sucursal
 export const getCitasPorSucursal = async (req, res) => {
   try {
@@ -218,5 +319,89 @@ export const getCitasPorSucursal = async (req, res) => {
     res.json(citas);
   } catch (error) {
     res.status(500).json({ error: "Error al obtener citas de la sucursal", details: error.message });
+  }
+};
+
+//citas por pacientes
+export const historialPaciente = async (req, res) => {
+  try {
+    const { pacienteId } = req.params;
+
+    const citas = await Cita.findAll({
+      where: { pacienteId },
+      order: [["horaInicio", "DESC"]],
+    });
+
+    res.json(citas);
+
+  } catch (error) {
+    res.status(500).json({ error: "Error al obtener historial" });
+  }
+};
+
+
+//cancelar cita
+export const cancelarCita = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { motivoCancelacion } = req.body;
+
+    const cita = await Cita.findByPk(id);
+
+    if (!cita) {
+      return res.status(404).json({ error: "Cita no encontrada" });
+    }
+
+    await cita.update({
+      estado: "Cancelada",
+      motivoCancelacion
+    });
+
+    res.json({ message: "Cita cancelada correctamente", cita });
+
+  } catch (error) {
+    res.status(500).json({
+      error: "Error al cancelar cita",
+      details: error.message
+    });
+  }
+};
+
+//Citas Por fecha
+export const obtenerCitasPorFecha = async (req, res) => {
+  try {
+    const { fecha } = req.params;
+
+    const inicioDia = new Date(`${fecha}T00:00:00`);
+    const finDia = new Date(`${fecha}T23:59:59`);
+
+    const citas = await Cita.findAll({
+      where: {
+        fechaHoraInicio: {
+          [Op.between]: [inicioDia, finDia],
+        },
+      },
+      order: [["fechaHoraInicio", "ASC"]],
+    });
+
+    res.json(citas);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+//Citas por doctor
+export const obtenerCitasPorDoctor = async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+
+    const citas = await Cita.findAll({
+      where: { doctorId },
+      order: [["fechaHoraInicio", "ASC"]],
+    });
+
+    res.json(citas);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };

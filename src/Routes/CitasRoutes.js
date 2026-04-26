@@ -3,13 +3,12 @@ import {
   crearCita,
   getCitas,
   getCitaById,
-  updateCita,
   deleteCita,
   cambiarEstadoCita,
   validarDisponibilidad,
   getCitasPorDoctor,
-  getCitasPorUsuario,
   getCitasPorSucursal,
+  actualizarCita
 } from "../Controllers/CitasControllers.js";
 
 const router = express.Router();
@@ -24,7 +23,7 @@ router.get("/", getCitas);
 router.get("/:id", getCitaById);
 
 //  Actualizar cita
-router.put("/:id", updateCita);
+router.put("/:id", actualizarCita);
 
 //  Eliminar cita
 router.delete("/:id", deleteCita);
@@ -37,9 +36,6 @@ router.post("/validar-disponibilidad", validarDisponibilidad);
 
 // Listar citas de un doctor
 router.get("/doctor/:doctorId", getCitasPorDoctor);
-
-//  Listar citas de un usuario
-router.get("/usuario/:usuarioId", getCitasPorUsuario);
 
 //  Listar citas de una sucursal
 router.get("/sucursal/:sucursalId", getCitasPorSucursal);

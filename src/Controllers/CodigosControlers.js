@@ -10,10 +10,10 @@ export const getCodigoSecuencia = async(id) =>{
   const t = await sequelize.transaction();
 
   try {
-    // 1️⃣ Obtener y bloquear el registro para esta transacción
+    // 1️Obtener y bloquear el registro para esta transacción
     const registro = await Codigos.findByPk(id, {
       transaction: t,
-      lock: t.LOCK.UPDATE, // 🔒 evita que otro proceso lea el mismo registro
+      lock: t.LOCK.UPDATE, // evita que otro proceso lea el mismo registro
     });
 
     if (!registro) throw new Error('Código no encontrado');
